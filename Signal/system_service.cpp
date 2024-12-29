@@ -52,10 +52,18 @@ void signal_handler(int signum, siginfo_t* siginfo, void* context)
     else if (signum == SIGCHLD)
     {
         int status;
-        waitpid(siginfo->si_pid, &status, 0);
-        std::cout << "Process with PID: " << siginfo->si_pid << " has exited." << std::endl;
-        std::lock_guard<std::mutex> lock(process_table_mut);
-        process_table.erase(siginfo->si_pid);
+        if (waitpid(siginfo->si_pid, &status, WNOHANG) > 0)
+        {
+            std::cerr << "Process with PID: " << siginfo->si_pid << " has exited with status: " << status << std::endl;
+            if (WIFEXITED(status) || WIFSIGNALED(status))
+            {
+                std::cerr << "Process exited normally with status: " << WEXITSTATUS(status) << std::endl;
+                std::lock_guard<std::mutex> lock(process_table_mut);
+                ProcessInfo process_info = process_table[siginfo->si_pid];
+                process_queue.push(process_info);
+                process_table.erase(siginfo->si_pid);
+            }
+        }
     }
     else
     {
