@@ -39,28 +39,6 @@ void signal_handler(int signum, siginfo_t* siginfo, void* context)
             }
         }
     }
-    else if (signum == SIGCHLD)
-    {
-        int status;
-        pid_t pid = waitpid(-1, &status, WNOHANG);
-        if (pid > 0)
-        {
-            std::lock_guard<std::mutex> lock(process_table_mut);
-            for (auto it = process_table.begin(); it != process_table.end();)
-            {
-                if (it->first == pid)
-                {
-                    std::cout << "Process: " << it->second.process_name << " with PID: " << pid << " has exited." << std::endl;
-                    process_queue.push(it->second);
-                    it = process_table.erase(it);
-                }
-                else
-                {
-                    ++it;
-                }
-            }
-        }
-    }
     else
     {
         std::cerr << "Received unknown signal: " << signum << std::endl;
@@ -119,13 +97,6 @@ void monitor_processes()
         std::cout << "tick..." << std::endl;
 
         std::lock_guard<std::mutex> lock(process_table_mut);
-        while (!process_queue.empty())
-        {
-            ProcessInfo process_info = process_queue.front();
-            process_queue.pop();
-            start_process(process_info.process_name);
-        }
-
         for (auto it = process_table.begin(); it != process_table.end();)
         {
             ProcessInfo process_info = it->second;
@@ -146,6 +117,14 @@ void monitor_processes()
             {
                 ++it;
             }
+        }
+
+        // Restarting processes
+        while (!process_queue.empty())
+        {
+            ProcessInfo process_info = process_queue.front();
+            process_queue.pop();
+            start_process(process_info.process_name);
         }
     }
 }
