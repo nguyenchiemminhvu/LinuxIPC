@@ -48,7 +48,6 @@ int main(int argc, char** argv)
                 {
                     perror("PARENT Read");
                     sleep(1);
-                    continue;
                 }
                 else
                 {
