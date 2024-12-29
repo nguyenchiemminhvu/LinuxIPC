@@ -15,11 +15,11 @@
 
 struct ProcessInfo
 {
-    pid_t pid;
+    std::string process_name;
     std::chrono::time_point<std::chrono::steady_clock> last_heartbeat;
 };
 
-std::map<std::string, ProcessInfo> process_table;
+std::map<pid_t, ProcessInfo> process_table;
 std::mutex process_table_mut;
 
 void signal_handler(int signum, siginfo_t* siginfo, void* context)
@@ -30,7 +30,7 @@ void signal_handler(int signum, siginfo_t* siginfo, void* context)
         std::lock_guard<std::mutex> lock(process_table_mut);
         for (auto& process : process_table)
         {
-            if (process.second.pid == siginfo->si_pid)
+            if (process.first == siginfo->si_pid)
             {
                 process.second.last_heartbeat = std::chrono::steady_clock::now();
                 break;
@@ -46,8 +46,9 @@ void signal_handler(int signum, siginfo_t* siginfo, void* context)
             std::lock_guard<std::mutex> lock(process_table_mut);
             for (auto it = process_table.begin(); it != process_table.end();)
             {
-                if (it->second.pid == pid)
+                if (it->first == pid)
                 {
+                    std::cout << "Process: " << it->second.process_name << " with PID: " << pid << " has exited." << std::endl;
                     it = process_table.erase(it);
                 }
                 else
@@ -76,11 +77,11 @@ void start_process(const std::string& process_name)
     else if (pid > 0)
     {
         ProcessInfo process_info;
-        process_info.pid = pid;
+        process_info.process_name = process_name;
         process_info.last_heartbeat = std::chrono::steady_clock::now();
 
         std::lock_guard<std::mutex> lock(process_table_mut);
-        process_table[process_name] = process_info;
+        process_table[pid] = process_info;
 
         std::cout << "Started process: " << process_name << " with PID: " << pid << std::endl;
     }
@@ -90,15 +91,24 @@ void start_process(const std::string& process_name)
     }
 }
 
+void terminate_process(pid_t pid)
+{
+    kill(pid, SIGKILL);
+}
+
 void init_processes()
 {
     std::cout << "Initializing processes..." << std::endl;
-    std::vector<std::string> processes = { "process_a", "process_b", "process_c" };
-    for (const auto& process_name : processes)
+    for (const auto& entry : std::experimental::filesystem::directory_iterator("."))
     {
-        if (std::experimental::filesystem::exists(process_name))
+        if (std::experimental::filesystem::is_regular_file(entry.path())
+         && (std::experimental::filesystem::status(entry.path()).permissions() & std::experimental::filesystem::perms::owner_exec) == std::experimental::filesystem::perms::owner_exec)
         {
-            start_process(process_name);
+            std::string process_name = entry.path().filename().string();
+            if (process_name.find("process_") != std::string::npos)
+            {
+                start_process(process_name);
+            }
         }
     }
 }
@@ -109,23 +119,22 @@ void monitor_processes()
     {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         auto current_time = std::chrono::steady_clock::now();
+        std::cout << "tick..." << std::endl;
 
         std::lock_guard<std::mutex> lock(process_table_mut);
         for (auto it = process_table.begin(); it != process_table.end();)
         {
-            std::string process_name = it->first;
             ProcessInfo process_info = it->second;
             auto duration = std::chrono::duration_cast<std::chrono::seconds>(current_time - process_info.last_heartbeat).count();
             if (duration > HEARTBEAT_THRESHOLD)
             {
-                std::cout << "Process: " << process_name << " with PID: " << process_info.pid << " is not responding. Restarting..." << std::endl;
-                kill(process_info.pid, SIGKILL);
+                std::cout << "Process: " << process_info.process_name << " with PID: " << it->first << " is not responding. Restarting..." << std::endl;
+                kill(it->first, SIGKILL);
 
                 int status;
-                waitpid(process_info.pid, &status, 0);
-
+                waitpid(it->first, &status, 0);
+                
                 it = process_table.erase(it);
-                start_process(process_name);
             }
             else
             {

@@ -14,9 +14,19 @@
 int main(int argc, char** argv)
 {
     std::cout << "Process A started with PID: " << getpid() << std::endl;
+    int count = 0;
     while (true)
     {
-        pause();
+        sleep(1);
+        count++;
+        pid_t parent_id = getppid();
+        kill(parent_id, SIGUSR1);
+
+        if (count == 3)
+        {
+            kill(parent_id, SIGCHLD);
+            break;
+        }
     }
     return 0;
 }
