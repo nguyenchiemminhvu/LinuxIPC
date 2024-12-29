@@ -39,6 +39,24 @@ void signal_handler(int signum, siginfo_t* siginfo, void* context)
             }
         }
     }
+    else if (signum == SIGINT)
+    {
+        std::cout << "Shutting down system service..." << std::endl;
+        std::lock_guard<std::mutex> lock(process_table_mut);
+        for (const auto& process : process_table)
+        {
+            kill(process.first, SIGTERM);
+        }
+        exit(EXIT_SUCCESS);
+    }
+    else if (signum == SIGCHLD)
+    {
+        int status;
+        waitpid(siginfo->si_pid, &status, 0);
+        std::cout << "Process with PID: " << siginfo->si_pid << " has exited." << std::endl;
+        std::lock_guard<std::mutex> lock(process_table_mut);
+        process_table.erase(siginfo->si_pid);
+    }
     else
     {
         std::cerr << "Received unknown signal: " << signum << std::endl;
@@ -82,7 +100,7 @@ void init_processes()
             std::string process_name = entry.path().filename().string();
             if (process_name.find("process_") != std::string::npos)
             {
-                start_process(process_name);
+                process_queue.push({process_name, std::chrono::steady_clock::now()});
             }
         }
     }
@@ -138,6 +156,7 @@ int main(int argc, char** argv)
 
     sigaction(SIGUSR1, &sig_act, nullptr);
     sigaction(SIGCHLD, &sig_act, nullptr);
+    sigaction(SIGINT, &sig_act, nullptr);
 
     init_processes();
 
