@@ -24,14 +24,18 @@ int main(int argc, char** argv)
     if (pid == 0)
     {
         // Child process
+        close(pipefd[0]);
         sleep(3);
         printf("CHILD Write file descriptor: %d\n", pipefd[1]);
         write(pipefd[1], "test", 5);
+        close(pipefd[1]);
         exit(0);
     }
     else
     {
         // Parent process
+        close(pipefd[1]);
+
         if (fcntl(pipefd[0], F_SETFL, O_NONBLOCK) == -1)
         {
             perror("fcntl");
@@ -61,6 +65,8 @@ int main(int argc, char** argv)
                 break;
             }
         }
+
+        close(pipefd[0]);
     }
 
     return 0;
