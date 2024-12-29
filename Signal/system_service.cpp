@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <queue>
 #include <map>
 #include <chrono>
 #include <thread>
@@ -20,6 +21,7 @@ struct ProcessInfo
 };
 
 std::map<pid_t, ProcessInfo> process_table;
+std::queue<ProcessInfo> process_queue;
 std::mutex process_table_mut;
 
 void signal_handler(int signum, siginfo_t* siginfo, void* context)
@@ -49,6 +51,7 @@ void signal_handler(int signum, siginfo_t* siginfo, void* context)
                 if (it->first == pid)
                 {
                     std::cout << "Process: " << it->second.process_name << " with PID: " << pid << " has exited." << std::endl;
+                    process_queue.push(it->second);
                     it = process_table.erase(it);
                 }
                 else
@@ -80,7 +83,6 @@ void start_process(const std::string& process_name)
         process_info.process_name = process_name;
         process_info.last_heartbeat = std::chrono::steady_clock::now();
 
-        std::lock_guard<std::mutex> lock(process_table_mut);
         process_table[pid] = process_info;
 
         std::cout << "Started process: " << process_name << " with PID: " << pid << std::endl;
@@ -89,11 +91,6 @@ void start_process(const std::string& process_name)
     {
         std::cerr << "Failed to start process: " << process_name << std::endl;
     }
-}
-
-void terminate_process(pid_t pid)
-{
-    kill(pid, SIGKILL);
 }
 
 void init_processes()
@@ -122,12 +119,21 @@ void monitor_processes()
         std::cout << "tick..." << std::endl;
 
         std::lock_guard<std::mutex> lock(process_table_mut);
+        while (!process_queue.empty())
+        {
+            ProcessInfo process_info = process_queue.front();
+            process_queue.pop();
+            start_process(process_info.process_name);
+        }
+
         for (auto it = process_table.begin(); it != process_table.end();)
         {
             ProcessInfo process_info = it->second;
             auto duration = std::chrono::duration_cast<std::chrono::seconds>(current_time - process_info.last_heartbeat).count();
             if (duration > HEARTBEAT_THRESHOLD)
             {
+                process_queue.push(process_info);
+
                 std::cout << "Process: " << process_info.process_name << " with PID: " << it->first << " is not responding. Restarting..." << std::endl;
                 kill(it->first, SIGKILL);
 

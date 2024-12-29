@@ -22,9 +22,8 @@ int main(int argc, char** argv)
         pid_t parent_id = getppid();
         kill(parent_id, SIGUSR1);
 
-        if (count == 3)
+        if (count > 3)
         {
-            kill(parent_id, SIGCHLD);
             break;
         }
     }
