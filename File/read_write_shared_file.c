@@ -64,7 +64,10 @@ int main(int argc, char** argv)
                 next_number++;
 
                 lock.l_type = F_UNLCK;
-                fcntl(fd, F_SETLK, &lock);
+                if (fcntl(fd, F_SETLK, &lock) == -1)
+                {
+                    perror("fcntl");
+                }
             }
 
             sleep(1);
@@ -100,6 +103,8 @@ int main(int argc, char** argv)
             fcntl(fd, F_SETLKW, &lock);
             if (lock.l_type != F_UNLCK)
             {
+                lseek(fd, 0, SEEK_SET);
+
                 char buf[MAX_BUF];
                 int n = read(fd, buf, MAX_BUF);
                 if (n > 0 && n < MAX_BUF)
@@ -108,8 +113,16 @@ int main(int argc, char** argv)
                     printf("Read %s", buf);
                 }
 
+                if (ftruncate(fd, 0) != 0)
+                {
+                    perror("ftruncate");
+                }
+
                 lock.l_type = F_UNLCK;
-                fcntl(fd, F_SETLK, &lock);
+                if (fcntl(fd, F_SETLK, &lock) == -1)
+                {
+                    perror("fcntl");
+                }
             }
 
             sleep(1);
