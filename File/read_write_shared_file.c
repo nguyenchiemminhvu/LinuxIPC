@@ -48,7 +48,7 @@ int main(int argc, char** argv)
         while (1)
         {
             struct flock lock;
-            lock.l_type = F_RDLCK; // Read lock
+            lock.l_type = F_WRLCK; // Write lock
             lock.l_whence = SEEK_SET; // Relative to the start of the file
             lock.l_start = 0; // Start from the beginning of the file
             lock.l_len = 0; // Lock the whole file
