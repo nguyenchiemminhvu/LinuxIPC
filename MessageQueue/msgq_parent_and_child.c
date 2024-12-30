@@ -66,10 +66,6 @@ void init_ipc_keys()
 
 void clean_ipc_keys()
 {
-    msgctl(msgget(key_random, 0666), IPC_RMID, NULL);
-    msgctl(msgget(key_time, 0666), IPC_RMID, NULL);
-    msgctl(msgget(key_error, 0666), IPC_RMID, NULL);
-
     unlink(PATH_MSGQ_RANDOM);
     unlink(PATH_MSGQ_TIME);
     unlink(PATH_MSGQ_ERROR);
