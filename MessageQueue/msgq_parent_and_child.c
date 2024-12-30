@@ -14,6 +14,7 @@ key_t key_time;
 key_t key_error;
 
 void init_ipc_keys() __attribute__((constructor));
+void clean_ipc_keys() __attribute__((destructor));
 
 void init_ipc_keys()
 {
@@ -61,11 +62,39 @@ void init_ipc_keys()
         perror("ftok PATH_MSGQ_ERROR");
         exit(1);
     }
+}
 
-    printf("MSGQ keys: random = %d, time = %d, error = %d\n", key_random, key_time, key_error);
+void clean_ipc_keys()
+{
+    msgctl(msgget(key_random, 0666), IPC_RMID, NULL);
+    msgctl(msgget(key_time, 0666), IPC_RMID, NULL);
+    msgctl(msgget(key_error, 0666), IPC_RMID, NULL);
+
+    unlink(PATH_MSGQ_RANDOM);
+    unlink(PATH_MSGQ_TIME);
+    unlink(PATH_MSGQ_ERROR);
 }
 
 int main(int argc, char** argv)
 {
+    pid_t pid = fork();
+    if (pid == -1)
+    {
+        perror("fork");
+        exit(1);
+    }
+
+    if (pid == 0)
+    {
+        // Child
+        printf("Child process: msgq_random = %d, msgq_time = %d, msgq_error = %d\n", key_random, key_time, key_error);
+    }
+    else
+    {
+        // Parent
+        printf("Parent process: msgq_random = %d, msgq_time = %d, msgq_error = %d\n", key_random, key_time, key_error);
+
+        wait(NULL);
+    }
     return 0;
 }
