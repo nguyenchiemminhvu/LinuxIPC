@@ -7,7 +7,11 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "defs.h"
+#define PROJECT_ID 0x1234
+
+#define PATH_MSGQ_RANDOM "/tmp/msgq_random"
+#define PATH_MSGQ_TIME "/tmp/msgq_time"
+#define PATH_MSGQ_ERROR "/tmp/msgq_error"
 
 key_t key_random;
 key_t key_time;
