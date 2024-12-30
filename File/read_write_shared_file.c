@@ -25,6 +25,38 @@ void signal_handler(int signum, siginfo_t* siginfo, void* context)
     }
 }
 
+void lock_file_wait(int fd)
+{
+    struct flock lock;
+    memset(&lock, 0, sizeof(lock));
+    lock.l_type = F_WRLCK; // Write lock
+    lock.l_whence = SEEK_SET; // Relative to the start of the file
+    lock.l_start = 0; // Start from the beginning of the file
+    lock.l_len = 0; // Lock the whole file
+    lock.l_pid = getpid();
+    
+    if (fcntl(fd, F_SETLKW, &lock) == -1)
+    {
+        perror("fcntl");
+    }
+}
+
+void unlock_file(int fd)
+{
+    struct flock lock;
+    memset(&lock, 0, sizeof(lock));
+    lock.l_type = F_UNLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    if (fcntl(fd, F_SETLK, &lock) == -1)
+    {
+        perror("fcntl");
+    }
+}
+
 int main(int argc, char** argv)
 {
     pid_t pid = fork();
@@ -47,28 +79,14 @@ int main(int argc, char** argv)
         int next_number = 0;
         while (1)
         {
-            struct flock lock;
-            lock.l_type = F_WRLCK; // Write lock
-            lock.l_whence = SEEK_SET; // Relative to the start of the file
-            lock.l_start = 0; // Start from the beginning of the file
-            lock.l_len = 0; // Lock the whole file
-            lock.l_pid = getpid();
-            
-            fcntl(fd, F_SETLKW, &lock);
-            if (lock.l_type != F_UNLCK)
-            {
-                char buf[MAX_BUF];
-                sprintf(buf, "%d\n", next_number);
-                write(fd, buf, strlen(buf));
-                printf("Write %d\n", next_number);
-                next_number++;
-
-                lock.l_type = F_UNLCK;
-                if (fcntl(fd, F_SETLK, &lock) == -1)
-                {
-                    perror("fcntl");
-                }
-            }
+            lock_file_wait(fd);
+            lseek(fd, 0, SEEK_END); // Move to the end of the file before writing
+            char buf[MAX_BUF];
+            sprintf(buf, "%d\n", next_number);
+            write(fd, buf, strlen(buf));
+            printf("Write %d\n", next_number);
+            next_number++;
+            unlock_file(fd);
 
             sleep(1);
         }
@@ -93,37 +111,23 @@ int main(int argc, char** argv)
 
         while (1)
         {
-            struct flock lock;
-            lock.l_type = F_WRLCK; // Write lock
-            lock.l_whence = SEEK_SET; // Relative to the start of the file
-            lock.l_start = 0; // Start from the beginning of the file
-            lock.l_len = 0; // Lock the whole file
-            lock.l_pid = getpid();
-            
-            fcntl(fd, F_SETLKW, &lock);
-            if (lock.l_type != F_UNLCK)
+            lock_file_wait(fd);
+            lseek(fd, 0, SEEK_SET); // Move to the start of the file before reading
+
+            char buf[MAX_BUF];
+            int n = read(fd, buf, MAX_BUF);
+            if (n > 0 && n < MAX_BUF)
             {
-                lseek(fd, 0, SEEK_SET);
-
-                char buf[MAX_BUF];
-                int n = read(fd, buf, MAX_BUF);
-                if (n > 0 && n < MAX_BUF)
-                {
-                    buf[n] = '\0';
-                    printf("Read %s", buf);
-                }
-
-                if (ftruncate(fd, 0) != 0)
-                {
-                    perror("ftruncate");
-                }
-
-                lock.l_type = F_UNLCK;
-                if (fcntl(fd, F_SETLK, &lock) == -1)
-                {
-                    perror("fcntl");
-                }
+                buf[n] = '\0';
+                printf("Read %s", buf);
             }
+
+            if (ftruncate(fd, 0) != 0)
+            {
+                perror("ftruncate");
+            }
+
+            unlock_file(fd);
 
             sleep(1);
         }
