@@ -115,18 +115,20 @@ int main(int argc, char** argv)
                     memset(request_buf, 0, BUFFER_SIZE);
 
                     int recv_bytes = recv(fds[i].fd, request_buf, BUFFER_SIZE, 0);
-                    if (recv_bytes <= 0)
+                    if (recv_bytes <= 0 || strcmp(request_buf, "quit") == 0)
                     {
                         perror("recv");
 
+                        close(fds[i].fd);
                         fds[i].fd = fds[nfds - 1].fd;
                         fds[i].events = fds[nfds - 1].events;
                         nfds--;
                         i--;
-                        continue;
                     }
                     else
                     {
+                        printf("Receive request: %s\n", request_buf);
+
                         char response_buf[BUFFER_SIZE];
                         memset(response_buf, 0, BUFFER_SIZE);
                         sprintf(response_buf, "%d", time(NULL));
@@ -143,5 +145,6 @@ int main(int argc, char** argv)
     }
 
     close(sock_server);
+    unlink(SOCKET_PATH);
     return 0;
 }
