@@ -83,8 +83,10 @@ int main(int argc, char** argv)
 
         while (common_idx < SHM_SIZE)
         {
-            char ch = 'b' + (random() % 26);
+            // reverse
+            char ch = 'a' + (common_idx % 26);
             shm_ptr[common_idx] = ch;
+
             printf("CHILD edited:  %s\n", (char*)shm_ptr);
             common_idx++;
             usleep(100000);
