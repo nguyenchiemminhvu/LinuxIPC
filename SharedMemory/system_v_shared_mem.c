@@ -89,6 +89,8 @@ int main(int argc, char** argv)
             common_idx++;
             usleep(100000);
         }
+
+        shmdt(shm_ptr);
     }
     else
     {
@@ -114,6 +116,8 @@ int main(int argc, char** argv)
             common_idx++;
             usleep(100000);
         }
+
+        shmdt(shm_ptr);
 
         wait(NULL);
     }
