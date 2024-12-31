@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/mman.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -14,11 +15,12 @@
 #define PROJECT_ID 0x5555
 
 #define SHM_MODE 0666
-#define SHM_FLAGS (IPC_CREAT | IPC_EXCL | SHM_MODE)
-#define SHM_SIZE 1024
+#define SHM_FLAGS (IPC_CREAT | SHM_MODE)
+#define SHM_SIZE 32
 #define SHM_PATH "/tmp/shm"
 
 key_t shm_key;
+int common_idx = 0;
 
 void init_shm_keys() __attribute__((constructor));
 
@@ -70,9 +72,22 @@ int main(int argc, char** argv)
 
     if (pid == 0)
     {
-        while (1)
+        char* shm_ptr = (char*)shmat(shm_id, NULL, 0);
+        if (shm_ptr == MAP_FAILED)
         {
-            sleep(1);
+            perror("shmat");
+            exit(1);
+        }
+
+        memset(shm_ptr, 0, SHM_SIZE);
+
+        while (common_idx < SHM_SIZE)
+        {
+            char ch = 'a' + (random() % 26);
+            shm_ptr[common_idx] = ch;
+            printf("CHILD edited: %s\n", (char*)shm_ptr);
+            common_idx++;
+            usleep(100000);
         }
     }
     else
@@ -82,10 +97,25 @@ int main(int argc, char** argv)
         act.sa_flags = SA_SIGINFO;
         sigaction(SIGINT, &act, NULL);
 
-        while (1)
+        char* shm_ptr = (char*)shmat(shm_id, NULL, 0);
+        if (shm_ptr == MAP_FAILED)
         {
-            sleep(1);
+            perror("shmat");
+            exit(1);
         }
+
+        memset(shm_ptr, 0, SHM_SIZE);
+
+        while (common_idx < SHM_SIZE)
+        {
+            char ch = 'a' + (random() % 26);
+            shm_ptr[common_idx] = ch;
+            printf("PARENT edited: %s\n", (char*)shm_ptr);
+            common_idx++;
+            usleep(100000);
+        }
+
+        wait(NULL);
     }
 
     return 0;
