@@ -10,12 +10,8 @@
 #define PROJECT_ID 0x1234
 
 #define PATH_MSGQ_RANDOM "/tmp/msgq_random"
-#define PATH_MSGQ_TIME "/tmp/msgq_time"
-#define PATH_MSGQ_ERROR "/tmp/msgq_error"
 
 key_t key_random;
-key_t key_time;
-key_t key_error;
 
 void init_ipc_keys() __attribute__((constructor));
 void clean_ipc_keys() __attribute__((destructor));
@@ -36,47 +32,25 @@ void init_ipc_keys()
         perror("ftok PATH_MSGQ_RANDOM");
         exit(1);
     }
-
-    int fd_time = open(PATH_MSGQ_TIME, O_CREAT | O_RDWR, 0666);
-    if (fd_time == -1)
-    {
-        perror("open PATH_MSGQ_TIME");
-        exit(1);
-    }
-    close(fd_time);
-
-    key_time = ftok(PATH_MSGQ_TIME, PROJECT_ID);
-    if (key_time == -1)
-    {
-        perror("ftok PATH_MSGQ_TIME");
-        exit(1);
-    }
-
-    int fd_error = open(PATH_MSGQ_ERROR, O_CREAT | O_RDWR, 0666);
-    if (fd_error == -1)
-    {
-        perror("open PATH_MSGQ_ERROR");
-        exit(1);
-    }
-    close(fd_error);
-
-    key_error = ftok(PATH_MSGQ_ERROR, PROJECT_ID);
-    if (key_error == -1)
-    {
-        perror("ftok PATH_MSGQ_ERROR");
-        exit(1);
-    }
 }
 
 void clean_ipc_keys()
 {
-    unlink(PATH_MSGQ_RANDOM);
-    unlink(PATH_MSGQ_TIME);
-    unlink(PATH_MSGQ_ERROR);
+    if (unlink(PATH_MSGQ_RANDOM) == 0)
+    {
+        printf("Cleanup %s\n", PATH_MSGQ_RANDOM);
+    }
 }
 
 int main(int argc, char** argv)
 {
+    int msgq_id = msgget(key_random, IPC_CREAT | 0666);
+    if (msgq_id == -1)
+    {
+        perror("msgget");
+        exit(1);
+    }
+
     pid_t pid = fork();
     if (pid == -1)
     {
@@ -87,12 +61,12 @@ int main(int argc, char** argv)
     if (pid == 0)
     {
         // Child
-        printf("Child process: msgq_random = %d, msgq_time = %d, msgq_error = %d\n", key_random, key_time, key_error);
+        
     }
     else
     {
         // Parent
-        printf("Parent process: msgq_random = %d, msgq_time = %d, msgq_error = %d\n", key_random, key_time, key_error);
+        
 
         wait(NULL);
     }
