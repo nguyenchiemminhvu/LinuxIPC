@@ -63,10 +63,10 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    pid_t pid = getpid();
+    pid_t pid = fork();
     if (pid == -1)
     {
-        perror("getpid");
+        perror("fork");
         exit(1);
     }
 
@@ -83,9 +83,9 @@ int main(int argc, char** argv)
 
         while (common_idx < SHM_SIZE)
         {
-            char ch = 'a' + (random() % 26);
+            char ch = 'b' + (random() % 26);
             shm_ptr[common_idx] = ch;
-            printf("CHILD edited: %s\n", (char*)shm_ptr);
+            printf("CHILD edited:  %s\n", (char*)shm_ptr);
             common_idx++;
             usleep(100000);
         }
