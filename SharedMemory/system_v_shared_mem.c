@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 int main(int argc, char** argv)
 {
