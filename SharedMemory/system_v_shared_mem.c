@@ -112,7 +112,7 @@ int main(int argc, char** argv)
 
         while (common_idx < SHM_SIZE)
         {
-            char ch = 'a' + (random() % 26);
+            char ch = 'A' + (common_idx % 26);
             shm_ptr[common_idx] = ch;
             printf("PARENT edited: %s\n", (char*)shm_ptr);
             common_idx++;
