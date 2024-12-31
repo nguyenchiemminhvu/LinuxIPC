@@ -9,6 +9,7 @@ function(compile_executables target_name file_path)
     target_link_libraries(${target_name}
         PRIVATE
             pthread
+            rt
     )
 endfunction()
 
