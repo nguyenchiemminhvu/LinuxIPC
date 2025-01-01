@@ -8,23 +8,25 @@
 #include <time.h>
 #include <poll.h>
 #include <signal.h>
+#include <errno.h>
 
 #define SOCKET_PATH "/tmp/unix_socket"
 #define MAX_CONNECTION 64
 #define BUFFER_SIZE 1024
 
-void signal_handler(int signum, siginfo_t *info, void *ptr)
+void signal_handler(int signum)
 {
     if (signum == SIGINT)
     {
         unlink(SOCKET_PATH);
+        printf("\nServer shut down.\n");
         exit(0);
     }
 }
 
 void set_non_blocking(int fd)
 {
-    int flags = fcntl(fd, F_GETFL, &flags);
+    int flags = fcntl(fd, F_GETFL);
     if (flags == -1)
     {
         perror("fcntl F_GETFL");
@@ -37,23 +39,15 @@ void set_non_blocking(int fd)
     }
 }
 
-int main(int argc, char** argv)
+int main()
 {
-    struct sigaction act;
-    memset(&act, 0, sizeof(act));
-    act.sa_sigaction = signal_handler;
-    act.sa_flags = SA_SIGINFO;
-    if (sigaction(SIGINT, &act, NULL) == -1)
-    {
-        perror("sigaction");
-        exit(1);
-    }
+    signal(SIGINT, signal_handler);
 
     int sock_server = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sock_server < 0)
     {
         perror("socket");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     set_non_blocking(sock_server);
@@ -61,24 +55,26 @@ int main(int argc, char** argv)
     struct sockaddr_un addr_server;
     memset(&addr_server, 0, sizeof(struct sockaddr_un));
     addr_server.sun_family = AF_UNIX;
-    strncpy(&addr_server.sun_path, SOCKET_PATH, sizeof(addr_server.sun_path) - 1);
+    strncpy(addr_server.sun_path, SOCKET_PATH, sizeof(addr_server.sun_path) - 1);
 
     unlink(SOCKET_PATH);
-    if (bind(sock_server, (struct sockaddr*)&addr_server, sizeof(addr_server)) == -1)
+
+    if (bind(sock_server, (struct sockaddr *)&addr_server, sizeof(addr_server)) == -1)
     {
         perror("bind");
         close(sock_server);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     if (listen(sock_server, MAX_CONNECTION) == -1)
     {
         perror("listen");
         close(sock_server);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
-    // Server Loop
+    printf("Server listening on %s\n", SOCKET_PATH);
+
     struct pollfd fds[MAX_CONNECTION];
     memset(fds, 0, sizeof(struct pollfd) * MAX_CONNECTION);
     fds[0].fd = sock_server;
@@ -104,39 +100,59 @@ int main(int argc, char** argv)
                     int sock_client = accept(sock_server, NULL, NULL);
                     if (sock_client > 0)
                     {
-                        fds[nfds].fd = sock_client;
-                        fds[nfds].events = POLLIN;
-                        nfds++;
+                        printf("Client %d is connected\n", sock_client);
+                        set_non_blocking(sock_client);
+
+                        if (nfds < MAX_CONNECTION)
+                        {
+                            fds[nfds].fd = sock_client;
+                            fds[nfds].events = POLLIN;
+                            nfds++;
+                        }
+                        else
+                        {
+                            printf("Max clients reached. Closing client %d.\n", sock_client);
+                            close(sock_client);
+                        }
+                    }
+                    else
+                    {
+                        if (errno != EAGAIN && errno != EWOULDBLOCK)
+                        {
+                            perror("accept");
+                        }
                     }
                 }
                 else
                 {
-                    char request_buf[BUFFER_SIZE];
-                    memset(request_buf, 0, BUFFER_SIZE);
+                    char buffer[BUFFER_SIZE] = {0};
+                    int recv_bytes = recv(fds[i].fd, buffer, BUFFER_SIZE, 0);
 
-                    int recv_bytes = recv(fds[i].fd, request_buf, BUFFER_SIZE, 0);
-                    if (recv_bytes <= 0 || strcmp(request_buf, "quit") == 0)
+                    if (recv_bytes > 0)
                     {
-                        perror("recv");
+                        printf("Client %d sent: %s\n", fds[i].fd, buffer);
 
+                        char response[BUFFER_SIZE] = {0};
+                        snprintf(response, BUFFER_SIZE, "Server time: %ld", time(NULL));
+                        if (send(fds[i].fd, response, strlen(response), 0) <= 0)
+                        {
+                            perror("send");
+                        }
+                    }
+                    else if (recv_bytes == 0 || (recv_bytes == -1 && errno != EAGAIN && errno != EWOULDBLOCK))
+                    {
+                        printf("Client %d is disconnected\n", fds[i].fd);
                         close(fds[i].fd);
-                        fds[i].fd = fds[nfds - 1].fd;
-                        fds[i].events = fds[nfds - 1].events;
+
+                        fds[i] = fds[nfds - 1];
                         nfds--;
                         i--;
                     }
                     else
                     {
-                        printf("Receive request: %s\n", request_buf);
-
-                        char response_buf[BUFFER_SIZE];
-                        memset(response_buf, 0, BUFFER_SIZE);
-                        sprintf(response_buf, "%d", time(NULL));
-
-                        int sent_bytes = send(fds[i].fd, response_buf, strlen(response_buf), 0);
-                        if (sent_bytes <= 0)
+                        if (errno != EAGAIN && errno != EWOULDBLOCK)
                         {
-                            perror("send");
+                            perror("recv");
                         }
                     }
                 }
