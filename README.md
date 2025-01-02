@@ -1,5 +1,59 @@
 # LinuxIPC
 
+## File Locking
+
+```
+
+```
+
+## Pipe
+
+```
+
+```
+
+### Unnamed Pipe
+
+```
+
+```
+
+### FIFO (Named Pipe)
+
+```
+
+```
+
+## Signal
+
+```
+
+```
+
+## Semaphore
+
+```
+
+```
+
+## Message Queue
+
+```
+
+```
+
+## Shared Memory
+
+```
+
+```
+
+## Socket
+
+```
+
+```
+
 # References
 
 [https://beej.us/guide/bgipc/html/](https://beej.us/guide/bgipc/html/)
