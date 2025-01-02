@@ -172,6 +172,8 @@ Using in IPC context, Unix Sockets is powerful mechanism for communication betwe
 
 # References
 
+[https://github.com/nguyenchiemminhvu/LinuxIPC/tree/main](https://github.com/nguyenchiemminhvu/LinuxIPC/tree/main)
+
 [https://beej.us/guide/bgipc/html/](https://beej.us/guide/bgipc/html/)
 
 [https://opensource.com/article/19/4/interprocess-communication-linux-networking](https://opensource.com/article/19/4/interprocess-communication-linux-networking)
