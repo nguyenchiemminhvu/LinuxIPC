@@ -1,4 +1,4 @@
-- [LinuxIPC](#linuxipc)
+- [Introduction](#introduction)
   - [File Locking](#file-locking)
   - [Pipe (Anonymous Pipe)](#pipe-anonymous-pipe)
   - [FIFO (Named Pipe)](#fifo-named-pipe)
@@ -9,7 +9,7 @@
   - [Socket](#socket)
 - [References](#references)
 
-# LinuxIPC
+# Introduction
 
 The Linux IPC feature provides the methods for multiple processes to exchange data and signals.
 
