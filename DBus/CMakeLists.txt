@@ -3,12 +3,27 @@ project(IPCDBus)
 
 set(CMAKE_BUILD_TYPE Debug)
 
+# Find the dbus-1 package
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(DBUS1 REQUIRED dbus-1)
+
 function(compile_executables target_name file_path)
     add_executable(${target_name} ${file_path})
 
     target_link_libraries(${target_name}
         PRIVATE
             pthread
+            ${DBUS1_LIBRARIES}
+    )
+
+    target_include_directories(${target_name}
+        PRIVATE
+            ${DBUS1_INCLUDE_DIRS}
+    )
+
+    target_compile_options(${target_name}
+        PRIVATE
+            ${DBUS1_CFLAGS_OTHER}
     )
 endfunction()
 
