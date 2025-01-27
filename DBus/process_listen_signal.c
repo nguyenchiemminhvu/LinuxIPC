@@ -21,6 +21,16 @@ void listen_signals(DBusConnection* p_con)
 
 }
 
+void cleanup(DBusConnection* p_con)
+{
+    if (p_con != NULL)
+    {
+        dbus_connection_unref(p_con);
+    }
+    dbus_shutdown();
+    (void)unsetenv("DBUS_SESSION_BUS_ADDRESS");
+}
+
 int main()
 {
     DBusConnection* p_con;
@@ -30,24 +40,28 @@ int main()
     dbus_error_init(&d_error);
 
     // Start a new DBus session bus manually and set the environment variable
-    (void)unsetenv("DBUS_SESSION_BUS_ADDRESS");
-    fprintf(stderr, "Starting a new session bus.\n");
-    system("dbus-daemon --session --fork --print-address > /tmp/dbus_address");
-    FILE* fp = fopen("/tmp/dbus_address", "r");
-    if (fp == NULL)
+    char* dbus_address = getenv("DBUS_SESSION_BUS_ADDRESS");
+    if (dbus_address == NULL)
     {
-        fprintf(stderr, "Failed to open /tmp/dbus_address\n");
-        exit(-1);
-    }
-    char address[256];
-    if (fgets(address, sizeof(address), fp) != NULL)
-    {
-        address[strcspn(address, "\n")] = '\0';
+        fprintf(stderr, "DBUS_SESSION_BUS_ADDRESS is not set. Starting a new session bus.\n");
+        system("dbus-daemon --session --fork --print-address > /tmp/dbus_address");
+        FILE* fp = fopen("/tmp/dbus_address", "r");
+        if (fp == NULL)
+        {
+            fprintf(stderr, "Failed to open /tmp/dbus_address\n");
+            exit(-1);
+        }
+        char address[256];
+        if (fgets(address, sizeof(address), fp) != NULL)
+        {
+            // Remove the newline character at the end of the address string
+            address[strcspn(address, "\n")] = '\0';
+            setenv("DBUS_SESSION_BUS_ADDRESS", address, 1);
+        }
+        fclose(fp);
         setenv("DBUS_SESSION_BUS_ADDRESS", address, 1);
+        printf("DBUS_SESSION_BUS_ADDRESS=%s\n", address);
     }
-    fclose(fp);
-    setenv("DBUS_SESSION_BUS_ADDRESS", address, 1);
-    printf("DBUS_SESSION_BUS_ADDRESS=%s\n", address);
 
     p_con = dbus_bus_get(DBUS_BUS_SESSION, &d_error);
     if (dbus_error_is_set(&d_error))
